@@ -1,7 +1,10 @@
-# Use the official PHP image with FPM
+# Use official PHP image with FPM
 FROM php:8.1-fpm
 
-# Install system dependencies
+# Set Composer memory limit to avoid out-of-memory errors
+ENV COMPOSER_MEMORY_LIMIT=-1
+
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -15,31 +18,24 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# Install Composer
+# Install Composer globally
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set the working directory
+# Set working directory
 WORKDIR /var/www
 
-# Copy composer files first for faster rebuilds
+# Copy only composer files first to leverage Docker layer caching
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies
-RUN composer install --ignore-platform-reqs --no-scripts --no-autoloader
+# Install PHP dependencies and optimize autoload in one step
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
 # Copy the rest of the application files
 COPY . .
 
-# Run optimized autoload
-RUN composer dump-autoload --optimize
-
-# Set Laravel permissions
+# Set proper permissions for Laravel
 RUN chown -R www-data:www-data \
     /var/www/storage \
     /var/www/bootstrap/cache
 
-# Expose port for Laravel development server
-EXPOSE 8080
-
-# Start the Laravel app
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
+# Expose Laravel's

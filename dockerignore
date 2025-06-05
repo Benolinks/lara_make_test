@@ -4,4 +4,3 @@ vendor
 .git
 .dockerignore
 Dockerfile
-
